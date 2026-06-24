@@ -14,6 +14,18 @@ faixa_1 = 150
 faixa_2 = 300
 faixa_3 = 450
 
+#Timers:
+spawn_timer = pygame.USEREVENT + 1
+tempo_para_nascer = 2000
+pygame.time.set_timer(spawn_timer, tempo_para_nascer)
+
+#som:
+pygame.mixer.init()
+splash = pygame.mixer.Sound(r"Assets\Audios\splash.mp3")
+tema = pygame.mixer.music.load(r"Assets\Audios\tema.mp3")
+pygame.mixer.music.play(-1)
+
+
 
 #Telas:
 estado_do_jogo = "Menu"
@@ -21,7 +33,8 @@ estado_do_jogo = "Menu"
 
 velocidade = 5
 
-#fonte = pygame.font.Font("Imagens\Fonte\SuperMario256.ttf", 50)
+fonte = pygame.font.Font("Assets\Fonte\Fonte.ttf", 50)
+fonte_menor = pygame.font.Font("Assets\Fonte\Fonte.ttf", 15)
 fps = 30
 clock = pygame.time.Clock()
 
@@ -41,13 +54,15 @@ branco = (255, 255, 255)
 class Jogador(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self) 
-        imagem = pygame.image.load(r"Assets\Imagens\Barco\Boat Shop.png")
+        imagem = pygame.image.load(r"Assets\Imagens\Barco\Variações\Barco004.png")
         self.image = pygame.transform.scale(imagem, (80, 64))
         self.rect = self.image.get_rect()
         self.rota = 2
         self.peixes_pescados = 0
         self.vida = 1
+        self.vida_padrao = 1
         self.vivo = True
+
 jogador = Jogador() 
 jogador_grupo = pygame.sprite.Group()
 jogador_grupo.add(jogador)
@@ -179,7 +194,7 @@ def bolhas():
     global animacao_pesca
     bolhas_group.draw(tela)
     pygame.display.flip()
-    for elementos in lista_bolhas:
+    for elementos in bolhas_group:
         elementos.image = pescas[animacao_pesca]
     animacao_pesca += 1
     if animacao_pesca >= 20:
@@ -229,20 +244,151 @@ def eventos():
                 sobre_peixes = pygame.sprite.spritecollide(jogador, bolhas_group, True)
                 if event.key == pygame.K_SPACE and sobre_peixes:
                     jogador.peixes_pescados += 1
-                    #tocar som de splash
+                    splash.play() #Som de pesca
+                    splash.set_volume(1) 
+                    if jogador.peixes_pescados >= 5:  #Melhorias do barco
+                        barco_com_peixe = pygame.image.load(r"Assets\Imagens\Barco\Variações\Barco008.png")
+                        jogador.image = pygame.transform.scale(barco_com_peixe, (80, 64))
+                    elif jogador.vida >= 3:
+                        barco_melhoria_1 = pygame.image.load(r"Assets\Imagens\Barco\Variações\Barco009.png")
+                        jogador.image = pygame.transform.scale(barco_melhoria_1, (80, 64))
+                        
+            
+            #cria os obstáculos:
+            #verifica o timer
+            elif event.type == spawn_timer:
+                
+                #analisa quantos vão nascer
+                quantos = random.randint(1,3)
+                if quantos == 1:
+                    criar_obstaculos()
+                elif quantos == 2: #Cria 2 ao mesmo tempo
+                    for i in range(2):
+                        criar_obstaculos()
+                        
+                elif quantos == 3: #aumentamos a dificuldade por meio da velocidade
+                    global velocidade
+                    if velocidade < 15:
+                        velocidade += 1
+                    else:
+                        global tempo_para_nascer
+                        if tempo_para_nascer >= 200:
+                            
+                            tempo_para_nascer -= 50
+                            pygame.time.set_timer(spawn_timer, tempo_para_nascer)
+
+def verificar_duplas():
+    duplas_B_T = pygame.sprite.groupcollide(bolhas_group, tsunami_group, False, False)
+    # Detectar colisões
+
+    # Mudar posição de um sprite que colidiu
+    for foto_bolha, lista_tsunami in duplas_B_T.items():
+        # mover o sprite de tsunami para posição aleatória
+        for tsunamis in lista_tsunami:
+            tsunamis.rect.y = random.randint(1, 3) * 150 + 20
+
+    duplas_B_C = pygame.sprite.groupcollide(bolhas_group, cachoeira_grupo, False, False)
+    # Detectar colisões
+
+    # Mudar posição de um sprite que colidiu
+    for foto_bolha, lista_de_cachoeiras in duplas_B_C.items():
+        # mover o sprite de cachoeira para posição aleatória
+        for cachoeiras in lista_de_cachoeiras:
+            cachoeiras.rect.y = random.randint(1, 3) * 150 + 20
+    
+    duplas_C_T = pygame.sprite.groupcollide(cachoeira_grupo, tsunami_group, False, False)
+    # Detectar colisões
+
+    # Mudar posição de um sprite que colidiu
+    for foto_cachoeira, lista_tsunami in duplas_C_T.items():
+        # mover o sprite de tsunami para posição aleatória
+        for tsunamis in lista_tsunami:
+            tsunamis.rect.y = random.randint(1, 3) * 150 + 20
+
+
+def criar_obstaculos():
+    qual = random.randint(1,3)
+    if qual == 1:#Bolha
+        #define em qual faixa irá nascer
+        faixa = random.randint(1,3)
+        novo_evento = Bolhas(largura, faixa * 150 + jogador.rect.height - 25)
+        bolhas_group.add(novo_evento)
+    elif qual == 2:#Cachoeira
+        faixa = random.randint(1,3)
+        novo_evento = Cachoeira()
+        novo_evento.rect.y = faixa * 150 + 20
+        cachoeira_grupo.add(novo_evento)
+    elif qual == 3:#Tsunami
+        faixa = random.randint(1,3)
+        novo_evento = Tsunami()
+        novo_evento.rect.y = faixa * 150 + 20
+        tsunami_group.add(novo_evento)
+def tutorial():                    
+    tutoriais = [
+            "Comandos:",
+            "W(cima) e S (baixo) movem",
+            "(espaço) para pescar"
+            ]
+    paragrafo = 450
+    for linha in tutoriais:
+
+        label_tutorial = fonte_menor.render(linha, True, branco)
+        paragrafo += fonte_menor.get_height() + 15
+        tela.blit(label_tutorial, (50, paragrafo))
+                
     
 def menu():
     global estado_do_jogo
 
     tela.fill(preto)
     jogar = Botao(r"Assets\Imagens\Botões\jogar.png")
+    pontos = Botao(r"Assets\Imagens\Peixes\Clownfish Outline.png")
+    loja = Botao(r"Assets\Imagens\Barco\Boat Shop.png")
+    vida = Botao(r"Assets\Imagens\Botões\vida.png")
+
+    label_peixes = fonte.render(f"Peixes: {jogador.peixes_pescados}", True, branco)
+    label_loja = fonte.render(f"Loja", True, branco)
+
+    tutorial()
+
+    #Organizando a tabela de pontos
+    pontos.rect.x = 500
+    pontos.rect.y = 50
+    pontos.image = pygame.transform.scale(pontos.image, (36, 36))
+
+    #organizando a tabela de loja
+    loja.rect.x = 600
+    loja.rect.y = 300
+    loja.image = pygame.transform.scale(loja.image, (72, 72) )
+
+    #organizando o botao de vida extra
+    vida.rect.x = 495
+    vida.rect.y = 375
+    vida.image = pygame.transform.scale_by(vida.image, 0.75)
+
+
     botao_grupo = pygame.sprite.Group()
     botao_grupo.add(jogar)
+    botao_grupo.add(pontos)
+    botao_grupo.add(loja)
+    botao_grupo.add(vida)
+
     jogar.rect.x = largura/2 - 100
     jogar.rect.y = altura/2 - 60
+
+    #Desenhando o menu
     botao_grupo.draw(tela)
+    tela.blit(label_peixes, (540, 40))
+    tela.blit(label_loja, (500, 300))
+
+    #Analisando os botoes clicados:
     if jogar.clicou() == True:
         estado_do_jogo = "Jogo"
+    if vida.clicou():
+        if jogador.peixes_pescados >= 5:
+            jogador.vida += 1
+            jogador.vida_padrao += 1
+            jogador.peixes_pescados -= 5
     pygame.display.flip()
 
 
@@ -290,7 +436,47 @@ def morte():
         jogador.vivo = False
     if jogador.vivo == False:
         estado_do_jogo = "Fim"
+        for cachoeira in cachoeira_grupo:
+            cachoeira_grupo.remove(cachoeira)
+        for tsunami in tsunami_group:
+            tsunami_group.remove(tsunami)
+        for bolha in bolhas_group:
+            bolhas_group.remove(bolha)
+
+def game_over():
+    global estado_do_jogo
+
+
+    tela.fill(preto)
     
+    texto_central = fonte.render(f"Fim da pescaria", True, branco)
+
+    voltar_menu = Botao(r"Assets\Imagens\Botões\menu.png")
+    voltar_menu.rect.x = largura/2 - voltar_menu.rect.width + 50
+    voltar_menu.rect.y = altura/2 + voltar_menu.rect.height
+    fim_de_jogo_grupo = pygame.sprite.Group()
+    fim_de_jogo_grupo.add(voltar_menu)
+    if voltar_menu.clicou():
+        estado_do_jogo = "Menu"
+        jogador.vida = jogador.vida_padrao
+        jogador.vivo = True
+        
+
+    fundo_fim = pygame.image.load(r"Assets\Imagens\Background\fim de jogo\fundo_fim.png").convert_alpha()
+
+    pontos = pygame.image.load(r"Assets\Imagens\Peixes\Clownfish Outline.png")
+    pontos = pygame.transform.scale2x(pontos)
+    label_peixes = fonte.render(f"Peixes: {jogador.peixes_pescados}", True, branco)
+
+
+    tela.blit(fundo_fim, (0,0))
+    tela.blit(texto_central, (largura/2, altura/2 - 50))
+    tela.blit(label_peixes, (400, 200))
+    tela.blit(pontos, (600, 220))
+    fim_de_jogo_grupo.draw(tela)
+
+    
+    pygame.display.flip()
 
 
 
@@ -312,6 +498,14 @@ def desenhar():
     config_cachoeiras()
 
     jogador_grupo.draw(tela)
+
+    label_peixes = fonte.render(f"Peixes: {jogador.peixes_pescados}", True, branco)
+
+    label_vida = fonte.render(f"Vida: {jogador.vida}", True, branco)
+
+    tela.blit(label_vida, (50, 50))
+
+    tela.blit(label_peixes, (540, 40))
   
     pygame.display.flip()
 
@@ -326,6 +520,7 @@ while rodando == True:
     if estado_do_jogo == "Menu":
         menu()
 
+        
     elif estado_do_jogo == "Jogo":
         movimento()
 
@@ -335,12 +530,13 @@ while rodando == True:
 
         morte()
 
+        verificar_duplas()
+
         desenhar()
 
-        print(jogador.peixes_pescados)
     
     elif estado_do_jogo == "Fim":
-        print("Game over")
+        game_over()
 
         
         
